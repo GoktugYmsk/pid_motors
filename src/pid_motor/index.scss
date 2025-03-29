@@ -1,0 +1,377 @@
+// Renkler
+$primary: #3b82f6;
+$success: #10b981;
+$danger: #ef4444;
+$warning: #f59e0b;
+$dark: #1e293b;
+$light: #f8fafc;
+$gray: #94a3b8;
+$dark-gray: #334155;
+
+// Temel ayarlar
+:root {
+  font-size: 16px;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+// Ana yapı
+.app {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  transition: all 0.3s ease;
+
+  &.light {
+    background-color: #f1f5f9;
+    color: #1e293b;
+  }
+
+  &.dark {
+    background-color: #0f172a;
+    color: #f8fafc;
+  }
+}
+
+// Header
+.app-header {
+  background: linear-gradient(135deg, $primary 0%, #1d4ed8 100%);
+  color: white;
+  padding: 1rem 2rem;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+
+  .header-content {
+    max-width: 1200px;
+    margin: 0 auto;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .logo {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+
+    .icon {
+      font-size: 1.5rem;
+    }
+
+    h1 {
+      font-size: 1.25rem;
+      font-weight: 600;
+    }
+  }
+
+  .controls {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+
+    .connection {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.875rem;
+      padding: 0.375rem 0.75rem;
+      border-radius: 1.5rem;
+
+      &.connected {
+        background: rgba(255, 255, 255, 0.15);
+        color: white;
+
+        .icon {
+          color: #86efac;
+        }
+      }
+
+      &.disconnected {
+        button {
+          background: rgba(255, 255, 255, 0.1);
+          border: none;
+          color: white;
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+          cursor: pointer;
+          transition: all 0.2s ease;
+          padding: 0.375rem 0.75rem;
+          border-radius: 1.5rem;
+
+          &:hover {
+            background: rgba(255, 255, 255, 0.2);
+          }
+
+          .icon {
+            color: #fca5a5;
+          }
+        }
+      }
+    }
+
+    .theme-toggle {
+      background: rgba(255, 255, 255, 0.15);
+      border: none;
+      width: 2.25rem;
+      height: 2.25rem;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      cursor: pointer;
+      transition: all 0.2s ease;
+
+      &:hover {
+        background: rgba(255, 255, 255, 0.25);
+      }
+
+      .icon {
+        font-size: 1.25rem;
+      }
+    }
+  }
+}
+
+// Ana içerik
+.app-main {
+  flex: 1;
+  padding: 2rem;
+  max-width: 1200px;
+  width: 100%;
+  margin: 0 auto;
+}
+
+.dashboard {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
+// Durum kartları
+.status-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+
+  .card {
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0.05) 100%);
+    backdrop-filter: blur(10px);
+    border-radius: 0.75rem;
+    padding: 1.25rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+
+    &:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+    }
+
+    .card-icon {
+      width: 3rem;
+      height: 3rem;
+      border-radius: 0.5rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.5rem;
+      color: white;
+
+      &.speed { background: linear-gradient(135deg, $primary 0%, #6366f1 100%); }
+      &.distance { background: linear-gradient(135deg, $success 0%, #10b981 100%); }
+      &.angle { background: linear-gradient(135deg, $warning 0%, #f59e0b 100%); }
+    }
+
+    .card-content {
+      h3 {
+        font-size: 0.875rem;
+        font-weight: 500;
+        color: $gray;
+        margin-bottom: 0.25rem;
+      }
+
+      p {
+        font-size: 1.25rem;
+        font-weight: 600;
+        color: inherit;
+      }
+    }
+  }
+}
+
+// Grafik
+.chart-container {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0.05) 100%);
+  backdrop-filter: blur(10px);
+  border-radius: 0.75rem;
+  padding: 1.5rem;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+
+// Kontrol paneli
+.control-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+
+  .action-buttons {
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+  }
+
+  .angle-control {
+    .input-group {
+      display: flex;
+      gap: 0.5rem;
+
+      input {
+        flex: 1;
+        padding: 0.75rem 1rem;
+        border-radius: 0.5rem;
+        border: 1px solid $gray;
+        background: transparent;
+        font-size: 1rem;
+        transition: all 0.2s ease;
+
+        &:focus {
+          outline: none;
+          border-color: $primary;
+          box-shadow: 0 0 0 3px rgba($primary, 0.2);
+        }
+      }
+    }
+  }
+}
+
+// Butonlar
+.btn {
+  padding: 0.75rem 1.5rem;
+  border-radius: 0.5rem;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: none;
+  font-size: 0.9375rem;
+
+  &:hover {
+    transform: translateY(-2px);
+  }
+
+  &:active {
+    transform: translateY(0);
+  }
+
+  &.start {
+    background: linear-gradient(135deg, $primary 0%, #2563eb 100%);
+    color: white;
+  }
+
+  &.distance {
+    background: linear-gradient(135deg, $success 0%, #059669 100%);
+    color: white;
+  }
+
+  &.stop {
+    background: linear-gradient(135deg, $danger 0%, #dc2626 100%);
+    color: white;
+  }
+
+  &.angle {
+    background: linear-gradient(135deg, $warning 0%, #d97706 100%);
+    color: white;
+  }
+}
+
+// Footer
+.app-footer {
+  background: linear-gradient(135deg, $dark 0%, #0f172a 100%);
+  color: white;
+  text-align: center;
+  padding: 1rem;
+  font-size: 0.875rem;
+
+  p {
+    opacity: 0.8;
+  }
+}
+
+// Koyu tema özelleştirmeleri
+.dark {
+  .status-cards .card {
+    background: linear-gradient(135deg, rgba(30, 41, 59, 0.5) 0%, rgba(15, 23, 42, 0.5) 100%);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+  }
+
+  .chart-container {
+    background: linear-gradient(135deg, rgba(30, 41, 59, 0.5) 0%, rgba(15, 23, 42, 0.5) 100%);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+  }
+
+  .angle-control input {
+    background: rgba(15, 23, 42, 0.5);
+    border-color: $dark-gray;
+    color: white;
+
+    &::placeholder {
+      color: $gray;
+    }
+  }
+}
+
+// Responsive tasarım
+@media (max-width: 768px) {
+  :root {
+    font-size: 14px;
+  }
+
+  .app-header {
+    padding: 1rem;
+
+    .logo h1 {
+      font-size: 1.1rem;
+    }
+  }
+
+  .app-main {
+    padding: 1rem;
+  }
+
+  .status-cards {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .action-buttons {
+    flex-direction: column;
+    
+    .btn {
+      width: 100%;
+      justify-content: center;
+    }
+  }
+
+  .angle-control .input-group {
+    flex-direction: column;
+  }
+}
+
+@media (max-width: 480px) {
+  .status-cards {
+    grid-template-columns: 1fr;
+  }
+
+  .app-header .controls {
+    gap: 0.5rem;
+  }
+}
