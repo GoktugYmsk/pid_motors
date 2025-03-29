@@ -8,6 +8,11 @@ $light: #f8fafc;
 $gray: #94a3b8;
 $dark-gray: #334155;
 
+// Renk değişkenlerine ekleme
+$primary-color: #4361ee; // Ana renk
+$text-color-light: #2d3748; // Açık tema metin rengi
+$text-color-dark: #f8f9fa; // Koyu tema metin rengi
+
 // Temel ayarlar
 :root {
   font-size: 16px;
@@ -373,5 +378,99 @@ $dark-gray: #334155;
 
   .app-header .controls {
     gap: 0.5rem;
+  }
+}
+
+/* DİL DESTEĞİ İÇİN ÖZEL STİLLER */
+
+// Dil değiştirici butonu
+.language-switcher {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 1000;
+  padding: 8px 16px;
+  border-radius: 24px;
+  background: rgba($primary-color, 0.1);
+  color: $text-color-light;
+  border: 1px solid rgba($primary-color, 0.2);
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.3s ease;
+  backdrop-filter: blur(5px);
+  
+  &:hover {
+    background: rgba($primary-color, 0.2);
+    transform: translateY(-2px);
+  }
+
+  .flag-icon {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    overflow: hidden;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  }
+
+  // Koyu tema uyumu
+  .dark-mode & {
+    background: rgba($primary-color, 0.15);
+    color: $text-color-dark;
+    border-color: rgba($primary-color, 0.3);
+  }
+}
+
+// Çoklu dil desteği için kart içerikleri
+.card-content {
+  h3 {
+    transition: color 0.3s ease; // Dil değişikliğinde smooth geçiş
+  }
+
+  p {
+    &[data-unit="cm"]::after,
+    &[data-unit="degree"]::after,
+    &[data-unit="percent"]::after {
+      content: attr(data-unit);
+      margin-left: 2px;
+      font-size: 0.8em;
+    }
+  }
+}
+
+// Grafik dil desteği
+.recharts-legend-item-text {
+  text-transform: capitalize; // Tutarlı görünüm için
+}
+
+// Mobil uyumluluk
+@media (max-width: 768px) {
+  .language-switcher {
+    top: 15px;
+    right: 15px;
+    padding: 6px 12px;
+    font-size: 13px;
+    
+    .flag-icon {
+      width: 16px;
+      height: 16px;
+    }
+  }
+}
+
+// Form elemanları dil desteği
+.angle-control {
+  input::placeholder {
+    transition: opacity 0.3s ease;
+  }
+  
+  // Dil değişikliğinde placeholder animasyonu
+  &.language-changing {
+    input::placeholder {
+      opacity: 0.5;
+    }
   }
 }

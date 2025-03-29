@@ -1,19 +1,107 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useContext } from "react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
 import { FiPower, FiSun, FiMoon, FiWifi, FiWifiOff, FiRotateCw, FiSettings } from "react-icons/fi";
 import { GiProgression } from "react-icons/gi";
 import { IoMdSpeedometer } from "react-icons/io";
-import { 
-  MdSensors, } from "react-icons/md";
-import { FaAngleRight } from "react-icons/fa"
+import { MdSensors } from "react-icons/md";
+import { FaAngleRight } from "react-icons/fa";
 import { toast, ToastContainer } from 'react-toastify';
+import ReactCountryFlag from "react-country-flag";
 import 'react-toastify/dist/ReactToastify.css';
 import './index.scss';
 
-let ws;
+// Language files
+const translations = {
+  tr: {
+    appTitle: "PID Motor Kontrol",
+    connectionStatus: {
+      connected: "Bağlı",
+      disconnected: "Bağlantı Yok",
+      ready: "Hazır",
+      reconnect: "Yeniden Bağlan"
+    },
+    cards: {
+      status: "Motor Durumu",
+      distance: "Mesafe",
+      angle: "Açı",
+      speed: "Hız",
+      units: {
+        cm: "cm",
+        degree: "°",
+        percent: "%"
+      }
+    },
+    buttons: {
+      maxPower: "Maks Güç",
+      distanceMode: "Mesafe Modu",
+      stop: "Durdur",
+      setAngle: "Açıya Git"
+    },
+    placeholders: {
+      targetAngle: "Hedef açı (0-360)"
+    },
+    messages: {
+      connectionEstablished: "Bağlantı sağlandı",
+      connectionLost: "Bağlantı kesildi",
+      maxPowerActive: "Maksimum güç modu aktif",
+      distanceModeActive: "Mesafe modu aktif",
+      motorStopped: "Motor durduruldu",
+      angleSet: "açıya hareket ediliyor",
+      invalidAngle: "Geçerli bir açı girin",
+      reconnecting: "Yeniden bağlanılıyor...",
+      notConnected: "Motor bağlı değil!"
+    },
+    footer: "© {year} PID Motor Kontrol Sistemi | Tüm Hakları Saklıdır"
+  },
+  en: {
+    appTitle: "PID Motor Control",
+    connectionStatus: {
+      connected: "Connected",
+      disconnected: "Disconnected",
+      ready: "Ready",
+      reconnect: "Reconnect"
+    },
+    cards: {
+      status: "Motor Status",
+      distance: "Distance",
+      angle: "Angle",
+      speed: "Speed",
+      units: {
+        cm: "cm",
+        degree: "°",
+        percent: "%"
+      }
+    },
+    buttons: {
+      maxPower: "Max Power",
+      distanceMode: "Distance Mode",
+      stop: "Stop",
+      setAngle: "Set Angle"
+    },
+    placeholders: {
+      targetAngle: "Target angle (0-360)"
+    },
+    messages: {
+      connectionEstablished: "Connection established",
+      connectionLost: "Connection lost",
+      maxPowerActive: "Maximum power mode active",
+      distanceModeActive: "Distance mode active",
+      motorStopped: "Motor stopped",
+      angleSet: "Moving to angle",
+      invalidAngle: "Enter a valid angle",
+      reconnecting: "Reconnecting...",
+      notConnected: "Motor not connected!"
+    },
+    footer: "© {year} PID Motor Control System | All Rights Reserved"
+  }
+};
+
+// Create language context
+const LanguageContext = React.createContext();
 
 function PidMotor() {
-  const [motorStatus, setMotorStatus] = useState("Bağlantı Yok");
+  const [language, setLanguage] = useState('tr');
+  const [motorStatus, setMotorStatus] = useState(translations[language].connectionStatus.disconnected);
   const [data, setData] = useState([]);
   const [darkMode, setDarkMode] = useState(() => localStorage.getItem('darkMode') === 'true');
   const [distance, setDistance] = useState(0);
@@ -21,132 +109,88 @@ function PidMotor() {
   const [speed, setSpeed] = useState(0);
   const [isConnected, setIsConnected] = useState(false);
   const [inputAngle, setInputAngle] = useState("");
+  let ws;
+
+  const t = translations[language];
+
+  const toggleLanguage = () => {
+    const newLang = language === 'tr' ? 'en' : 'tr';
+    setLanguage(newLang);
+    setMotorStatus(translations[newLang].connectionStatus.disconnected);
+  };
 
   const connectWebSocket = () => {
-    // 1. Dinamik WebSocket URL belirleme
     const getWebSocketUrl = () => {
-      // Geliştirme ortamında doğrudan STM32'ye bağlan
       if (process.env.NODE_ENV === 'development') {
         return 'ws://192.168.1.100/ws';
       }
-      
-      // Production'da Vercel proxy üzerinden
       const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
       return `${protocol}//${window.location.host}/api/ws-proxy`;
     };
-  
-    // 2. WebSocket bağlantısını oluştur
+
     ws = new WebSocket(getWebSocketUrl());
-  
-    // 3. Bağlantı açıldığında
+
     ws.onopen = () => {
       setIsConnected(true);
-      setMotorStatus("Hazır");
-      showToast("Bağlantı sağlandı", "success");
-  
-      // Production'da STM32 IP'sini gönder
+      setMotorStatus(t.connectionStatus.ready);
+      showToast(t.messages.connectionEstablished, "success");
+      
       if (process.env.NODE_ENV === 'production') {
         ws.send(JSON.stringify({
           type: 'INIT_CONNECTION',
           deviceIp: process.env.NEXT_PUBLIC_STM32_IP || '192.168.1.100',
-          authToken: process.env.NEXT_PUBLIC_WS_TOKEN // Güvenlik için
+          authToken: process.env.NEXT_PUBLIC_WS_TOKEN
         }));
       }
     };
-  
-    // 4. Gelen mesajları işleme
+
     ws.onmessage = (event) => {
       try {
         const rawData = event.data;
-        
-        // Binary veri desteği
         const message = typeof rawData === 'string' 
           ? JSON.parse(rawData) 
           : JSON.parse(new TextDecoder().decode(rawData));
-  
-        // Veri güncellemeleri
-        if (message.distance !== undefined) {
-          setDistance(parseFloat(message.distance.toFixed(2)));
-        }
-        if (message.angle !== undefined) {
-          setAngle(parseInt(message.angle));
-        }
-        if (message.speed !== undefined) {
-          setSpeed(parseInt(message.speed));
-        }
-        if (message.status) {
-          setMotorStatus(message.status);
-        }
-  
-        // Grafik verisini güncelle (son 50 kayıt)
-        setData(prev => {
-          const newData = [...prev, {
-            timestamp: new Date().toISOString(),
-            speed: message.speed || 0,
-            distance: message.distance || 0,
-            angle: message.angle || 0
-          }];
-          return newData.slice(-50); // Sabit boyutlu veri seti
-        });
-  
+
+        if (message.distance !== undefined) setDistance(parseFloat(message.distance.toFixed(2)));
+        if (message.angle !== undefined) setAngle(parseInt(message.angle));
+        if (message.speed !== undefined) setSpeed(parseInt(message.speed));
+        if (message.status) setMotorStatus(message.status);
+
+        setData(prev => [...prev.slice(-50), {
+          timestamp: new Date().toISOString(),
+          speed: message.speed || 0,
+          distance: message.distance || 0,
+          angle: message.angle || 0
+        }]);
       } catch (error) {
-        console.error("Veri işleme hatası:", error);
-        setMotorStatus(`Veri Hatası: ${event.data}`);
+        console.error("Data processing error:", error);
+        setMotorStatus(`Data Error: ${event.data}`);
       }
     };
-  
-    // 5. Hata yönetimi
+
     ws.onerror = (error) => {
-      console.error("WebSocket hatası:", error);
+      console.error("WebSocket error:", error);
       handleDisconnection();
-      
-      // Özel hata mesajları
-      if (error.message.includes('failed')) {
-        showToast("Sunucuya ulaşılamıyor", "error");
-      } else {
-        showToast("Bağlantı hatası oluştu", "error");
-      }
+      showToast(t.messages.connectionLost, "error");
     };
-  
-    // 6. Bağlantı kapatıldığında
+
     ws.onclose = () => {
       handleDisconnection();
     };
-  
-    // 7. Yeniden bağlanma mekanizması
-    const handleDisconnection = () => {
-      if (isConnected) {
-        setIsConnected(false);
-        setMotorStatus("Bağlantı Yok");
-        
-        // 3 saniye sonra otomatik yeniden bağlan
-        const reconnectTimeout = setTimeout(() => {
-          if (!isConnected) {
-            showToast("Yeniden bağlanılıyor...", "info");
-            connectWebSocket();
-          }
-        }, 3000);
-  
-        // Temizleme fonksiyonu
-        return () => clearTimeout(reconnectTimeout);
-      }
-    };
   };
-  
-  // 8. Komponent unmount olduğunda bağlantıyı kapat
-  useEffect(() => {
-    return () => {
-      if (ws) {
-        ws.close();
-        console.log("WebSocket bağlantısı kapatıldı");
-      }
-    };
-  }, []);
+
+  const handleDisconnection = () => {
+    if (isConnected) {
+      setIsConnected(false);
+      setMotorStatus(t.connectionStatus.disconnected);
+      setTimeout(() => !isConnected && connectWebSocket(), 3000);
+    }
+  };
 
   useEffect(() => {
     connectWebSocket();
     return () => ws?.close();
-  }, []);
+  }, [language]);
 
   const showToast = (message, type) => {
     toast[type](message, {
@@ -158,7 +202,7 @@ function PidMotor() {
 
   const sendCommand = (command) => {
     if (!isConnected) {
-      showToast("Motor bağlı değil!", "error");
+      showToast(t.messages.notConnected, "error");
       return false;
     }
     ws.send(command);
@@ -167,30 +211,30 @@ function PidMotor() {
 
   const handleStart = () => {
     if (sendCommand("START")) {
-      showToast("Maksimum güç modu aktif", "success");
+      showToast(t.messages.maxPowerActive, "success");
     }
   };
 
   const handleDistanceMode = () => {
     if (sendCommand("DISTANCE")) {
-      showToast("Mesafe modu aktif", "success");
+      showToast(t.messages.distanceModeActive, "success");
     }
   };
 
   const handleAngleSubmit = () => {
     if (!inputAngle || isNaN(inputAngle)) {
-      showToast("Geçerli bir açı girin", "error");
+      showToast(t.messages.invalidAngle, "error");
       return;
     }
     if (sendCommand(`ANGLE:${inputAngle}`)) {
-      showToast(`${inputAngle}° açıya hareket ediliyor`, "success");
+      showToast(`${inputAngle}${t.cards.units.degree} ${t.messages.angleSet}`, "success");
       setInputAngle("");
     }
   };
 
   const handleStop = () => {
     if (sendCommand("STOP")) {
-      showToast("Motor durduruldu", "info");
+      showToast(t.messages.motorStopped, "info");
     }
   };
 
@@ -201,165 +245,201 @@ function PidMotor() {
   };
 
   const handleReconnect = () => {
-    showToast("Yeniden bağlanılıyor...", "info");
+    showToast(t.messages.reconnecting, "info");
     connectWebSocket();
   };
 
   return (
-    <div className={`app ${darkMode ? 'dark' : 'light'}`}>
-      <ToastContainer />
-      
-      <header className="app-header">
-        <div className="header-content">
-          <div className="logo">
-            <FiSettings className="icon" />
-            <h1>PID Motor Kontrol</h1>
-          </div>
-          
-          <div className="controls">
-            <div className={`connection ${isConnected ? 'connected' : 'disconnected'}`}>
-              {isConnected ? (
-                <>
-                  <FiWifi className="icon" />
-                  <span>Bağlı</span>
-                </>
-              ) : (
-                <button onClick={handleReconnect}>
-                  <FiWifiOff className="icon" />
-                  <span>Yeniden Bağlan</span>
-                </button>
-              )}
-            </div>
-            
-            <button className="theme-toggle" onClick={toggleTheme}>
-              {darkMode ? <FiSun className="icon" /> : <FiMoon className="icon" />}
-            </button>
-          </div>
-        </div>
-      </header>
+    <LanguageContext.Provider value={{ language, toggleLanguage }}>
+      <div className={`app ${darkMode ? 'dark' : 'light'}`}>
+        <ToastContainer />
+        
+        <button 
+      onClick={toggleLanguage}
+      className="language-switcher"
+      aria-label={language === 'tr' ? 'Switch to English' : 'Türkçe olarak değiştir'}
+    >
+      {language === 'tr' ? (
+        <>
+          <ReactCountryFlag 
+            countryCode="GB" 
+            svg 
+            style={{
+              width: '20px',
+              height: '20px',
+              marginRight: '6px'
+            }} 
+          />
+          <span>EN</span>
+        </>
+      ) : (
+        <>
+          <ReactCountryFlag 
+            countryCode="TR" 
+            svg 
+            style={{
+              width: '20px',
+              height: '20px',
+              marginRight: '6px'
+            }} 
+          />
+          <span>TR</span>
+        </>
+      )}
+    </button>
 
-      <main className="app-main">
-        <div className="dashboard">
-          <div className="status-cards">
-            <div className="card">
-              <div className="card-icon speed">
-                <IoMdSpeedometer />
-              </div>
-              <div className="card-content">
-                <h3>Motor Durumu</h3>
-                <p>{motorStatus}</p>
-              </div>
+
+        <header className="app-header">
+          <div className="header-content">
+            <div className="logo">
+              <FiSettings className="icon" />
+              <h1>{t.appTitle}</h1>
             </div>
             
-            <div className="card">
-              <div className="card-icon distance">
-                <MdSensors />
+            <div className="controls">
+              <div className={`connection ${isConnected ? 'connected' : 'disconnected'}`}>
+                {isConnected ? (
+                  <>
+                    <FiWifi className="icon" />
+                    <span>{t.connectionStatus.connected}</span>
+                  </>
+                ) : (
+                  <button onClick={handleReconnect}>
+                    <FiWifiOff className="icon" />
+                    <span>{t.connectionStatus.reconnect}</span>
+                  </button>
+                )}
               </div>
-              <div className="card-content">
-                <h3>Mesafe</h3>
-                <p>{distance} cm</p>
-              </div>
-            </div>
-            
-            <div className="card">
-              <div className="card-icon angle">
-                <FaAngleRight  />
               
-              </div>
-              <div className="card-content">
-                <h3>Açı</h3>
-                <p>{angle}°</p>
-              </div>
-            </div>
-            
-            <div className="card">
-              <div className="card-icon speed">
-                <GiProgression />
-              </div>
-              <div className="card-content">
-                <h3>Hız</h3>
-                <p>{speed}%</p>
-              </div>
+              <button className="theme-toggle" onClick={toggleTheme}>
+                {darkMode ? <FiSun className="icon" /> : <FiMoon className="icon" />}
+              </button>
             </div>
           </div>
+        </header>
 
-          <div className="chart-container">
-            <ResponsiveContainer width="100%" height={300}>
-              <LineChart data={data}>
-                <CartesianGrid strokeDasharray="3 3" opacity={0.5} />
-                <XAxis 
-                  dataKey="timestamp" 
-                  tickFormatter={(t) => new Date(t).toLocaleTimeString()}
-                  tick={{ fill: darkMode ? '#e2e8f0' : '#64748b' }}
-                />
-                <YAxis yAxisId="left" tick={{ fill: darkMode ? '#e2e8f0' : '#64748b' }} />
-                <YAxis yAxisId="right" orientation="right" tick={{ fill: darkMode ? '#e2e8f0' : '#64748b' }} />
-                <Tooltip 
-                  contentStyle={{
-                    background: darkMode ? '#334155' : '#f8fafc',
-                    borderColor: darkMode ? '#475569' : '#e2e8f0',
-                    borderRadius: '0.5rem'
-                  }}
-                />
-                <Legend />
-                <Line 
-                  yAxisId="left"
-                  type="monotone" 
-                  dataKey="speed" 
-                  stroke="#3b82f6" 
-                  strokeWidth={2}
-                  dot={false}
-                  name="Hız (%)"
-                />
-                <Line 
-                  yAxisId="right"
-                  type="monotone" 
-                  dataKey="distance" 
-                  stroke="#10b981" 
-                  strokeWidth={2}
-                  dot={false}
-                  name="Mesafe (cm)"
-                />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-
-          <div className="control-panel">
-            <div className="action-buttons">
-              <button className="btn start" onClick={handleStart}>
-                <FiPower /> Maks Güç
-              </button>
-              <button className="btn distance" onClick={handleDistanceMode}>
-                <MdSensors /> Mesafe Modu
-              </button>
-              <button className="btn stop" onClick={handleStop}>
-                <FiPower /> Durdur
-              </button>
+        <main className="app-main">
+          <div className="dashboard">
+            <div className="status-cards">
+              <div className="card">
+                <div className="card-icon speed">
+                  <IoMdSpeedometer />
+                </div>
+                <div className="card-content">
+                  <h3>{t.cards.status}</h3>
+                  <p>{motorStatus}</p>
+                </div>
+              </div>
+              
+              <div className="card">
+                <div className="card-icon distance">
+                  <MdSensors />
+                </div>
+                <div className="card-content">
+                  <h3>{t.cards.distance}</h3>
+                  <p>{distance} {t.cards.units.cm}</p>
+                </div>
+              </div>
+              
+              <div className="card">
+                <div className="card-icon angle">
+                  <FaAngleRight />
+                </div>
+                <div className="card-content">
+                  <h3>{t.cards.angle}</h3>
+                  <p>{angle}{t.cards.units.degree}</p>
+                </div>
+              </div>
+              
+              <div className="card">
+                <div className="card-icon speed">
+                  <GiProgression />
+                </div>
+                <div className="card-content">
+                  <h3>{t.cards.speed}</h3>
+                  <p>{speed}{t.cards.units.percent}</p>
+                </div>
+              </div>
             </div>
-            
-            <div className="angle-control">
-              <div className="input-group">
-                <input
-                  type="number"
-                  value={inputAngle}
-                  onChange={(e) => setInputAngle(e.target.value)}
-                  placeholder="Hedef açı (0-360)"
-                  min="0"
-                  max="360"
-                />
-                <button className="btn angle" onClick={handleAngleSubmit}>
-                  <FiRotateCw /> Açıya Git
+
+            <div className="chart-container">
+              <ResponsiveContainer width="100%" height={300}>
+                <LineChart data={data}>
+                  <CartesianGrid strokeDasharray="3 3" opacity={0.5} />
+                  <XAxis 
+                    dataKey="timestamp" 
+                    tickFormatter={(t) => new Date(t).toLocaleTimeString()}
+                    tick={{ fill: darkMode ? '#e2e8f0' : '#64748b' }}
+                  />
+                  <YAxis yAxisId="left" tick={{ fill: darkMode ? '#e2e8f0' : '#64748b' }} />
+                  <YAxis yAxisId="right" orientation="right" tick={{ fill: darkMode ? '#e2e8f0' : '#64748b' }} />
+                  <Tooltip 
+                    contentStyle={{
+                      background: darkMode ? '#334155' : '#f8fafc',
+                      borderColor: darkMode ? '#475569' : '#e2e8f0',
+                      borderRadius: '0.5rem'
+                    }}
+                  />
+                  <Legend />
+                  <Line 
+                    yAxisId="left"
+                    type="monotone" 
+                    dataKey="speed" 
+                    stroke="#3b82f6" 
+                    strokeWidth={2}
+                    dot={false}
+                    name={`${t.cards.speed} (${t.cards.units.percent})`}
+                  />
+                  <Line 
+                    yAxisId="right"
+                    type="monotone" 
+                    dataKey="distance" 
+                    stroke="#10b981" 
+                    strokeWidth={2}
+                    dot={false}
+                    name={`${t.cards.distance} (${t.cards.units.cm})`}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+
+            <div className="control-panel">
+              <div className="action-buttons">
+                <button className="btn start" onClick={handleStart}>
+                  <FiPower /> {t.buttons.maxPower}
+                </button>
+                <button className="btn distance" onClick={handleDistanceMode}>
+                  <MdSensors /> {t.buttons.distanceMode}
+                </button>
+                <button className="btn stop" onClick={handleStop}>
+                  <FiPower /> {t.buttons.stop}
                 </button>
               </div>
+              
+              <div className="angle-control">
+                <div className="input-group">
+                  <input
+                    type="number"
+                    value={inputAngle}
+                    onChange={(e) => setInputAngle(e.target.value)}
+                    placeholder={t.placeholders.targetAngle}
+                    min="0"
+                    max="360"
+                  />
+                  <button className="btn angle" onClick={handleAngleSubmit}>
+                    <FiRotateCw /> {t.buttons.setAngle}
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
-        </div>
-      </main>
+        </main>
 
-      <footer className="app-footer">
-        <p>© {new Date().getFullYear()} PID Motor Kontrol Sistemi | Tüm Hakları Saklıdır</p>
-      </footer>
-    </div>
+        <footer className="app-footer">
+          <p>{t.footer.replace('{year}', new Date().getFullYear())}</p>
+        </footer>
+      </div>
+    </LanguageContext.Provider>
   );
 }
 
