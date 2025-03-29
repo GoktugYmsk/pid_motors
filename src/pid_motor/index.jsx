@@ -254,39 +254,7 @@ function PidMotor() {
       <div className={`app ${darkMode ? 'dark' : 'light'}`}>
         <ToastContainer />
         
-        <button 
-      onClick={toggleLanguage}
-      className="language-switcher"
-      aria-label={language === 'tr' ? 'Switch to English' : 'Türkçe olarak değiştir'}
-    >
-      {language === 'tr' ? (
-        <>
-          <ReactCountryFlag 
-            countryCode="GB" 
-            svg 
-            style={{
-              width: '20px',
-              height: '20px',
-              marginRight: '6px'
-            }} 
-          />
-          <span>EN</span>
-        </>
-      ) : (
-        <>
-          <ReactCountryFlag 
-            countryCode="TR" 
-            svg 
-            style={{
-              width: '20px',
-              height: '20px',
-              marginRight: '6px'
-            }} 
-          />
-          <span>TR</span>
-        </>
-      )}
-    </button>
+     
 
 
         <header className="app-header">
@@ -297,6 +265,28 @@ function PidMotor() {
             </div>
             
             <div className="controls">
+            <button 
+    onClick={toggleLanguage}
+    className="language-switcher"
+    aria-label={language === 'tr' ? 'Switch to English' : 'Türkçe olarak değiştir'}
+  >
+    <div className="flag-container">
+      <ReactCountryFlag 
+        countryCode={language === 'tr' ? 'GB' : 'TR'} 
+        svg 
+        style={{
+          width: '20px',
+          height: '20px',
+          borderRadius: '50%',
+          objectFit: 'cover'
+        }} 
+      />
+    </div>
+    <span className="language-text">
+      {language === 'tr' ? 'EN' : 'TR'}
+    </span>
+  </button>
+
               <div className={`connection ${isConnected ? 'connected' : 'disconnected'}`}>
                 {isConnected ? (
                   <>
