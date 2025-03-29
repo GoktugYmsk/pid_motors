@@ -23,44 +23,125 @@ function PidMotor() {
   const [inputAngle, setInputAngle] = useState("");
 
   const connectWebSocket = () => {
-    ws = new WebSocket("ws://192.168.1.100/ws");
-
+    // 1. Dinamik WebSocket URL belirleme
+    const getWebSocketUrl = () => {
+      // Geliştirme ortamında doğrudan STM32'ye bağlan
+      if (process.env.NODE_ENV === 'development') {
+        return 'ws://192.168.1.100/ws';
+      }
+      
+      // Production'da Vercel proxy üzerinden
+      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      return `${protocol}//${window.location.host}/api/ws-proxy`;
+    };
+  
+    // 2. WebSocket bağlantısını oluştur
+    ws = new WebSocket(getWebSocketUrl());
+  
+    // 3. Bağlantı açıldığında
     ws.onopen = () => {
       setIsConnected(true);
       setMotorStatus("Hazır");
       showToast("Bağlantı sağlandı", "success");
-    };
-
-    ws.onmessage = (event) => {
-      try {
-        const { distance, angle, speed, status } = JSON.parse(event.data);
-        if (distance !== undefined) setDistance(distance);
-        if (angle !== undefined) setAngle(angle);
-        if (speed !== undefined) setSpeed(speed);
-        if (status) setMotorStatus(status);
-
-        setData(prev => [...prev.slice(-50), {
-          timestamp: new Date().toISOString(),
-          speed: speed || 0,
-          distance: distance || 0,
-          angle: angle || 0
-        }]);
-      } catch {
-        setMotorStatus(event.data);
+  
+      // Production'da STM32 IP'sini gönder
+      if (process.env.NODE_ENV === 'production') {
+        ws.send(JSON.stringify({
+          type: 'INIT_CONNECTION',
+          deviceIp: process.env.NEXT_PUBLIC_STM32_IP || '192.168.1.100',
+          authToken: process.env.NEXT_PUBLIC_WS_TOKEN // Güvenlik için
+        }));
       }
     };
-
-    ws.onerror = (error) => {
-      console.error("WebSocket error:", error);
-      setIsConnected(false);
-      showToast("Bağlantı kesildi", "error");
+  
+    // 4. Gelen mesajları işleme
+    ws.onmessage = (event) => {
+      try {
+        const rawData = event.data;
+        
+        // Binary veri desteği
+        const message = typeof rawData === 'string' 
+          ? JSON.parse(rawData) 
+          : JSON.parse(new TextDecoder().decode(rawData));
+  
+        // Veri güncellemeleri
+        if (message.distance !== undefined) {
+          setDistance(parseFloat(message.distance.toFixed(2)));
+        }
+        if (message.angle !== undefined) {
+          setAngle(parseInt(message.angle));
+        }
+        if (message.speed !== undefined) {
+          setSpeed(parseInt(message.speed));
+        }
+        if (message.status) {
+          setMotorStatus(message.status);
+        }
+  
+        // Grafik verisini güncelle (son 50 kayıt)
+        setData(prev => {
+          const newData = [...prev, {
+            timestamp: new Date().toISOString(),
+            speed: message.speed || 0,
+            distance: message.distance || 0,
+            angle: message.angle || 0
+          }];
+          return newData.slice(-50); // Sabit boyutlu veri seti
+        });
+  
+      } catch (error) {
+        console.error("Veri işleme hatası:", error);
+        setMotorStatus(`Veri Hatası: ${event.data}`);
+      }
     };
-
+  
+    // 5. Hata yönetimi
+    ws.onerror = (error) => {
+      console.error("WebSocket hatası:", error);
+      handleDisconnection();
+      
+      // Özel hata mesajları
+      if (error.message.includes('failed')) {
+        showToast("Sunucuya ulaşılamıyor", "error");
+      } else {
+        showToast("Bağlantı hatası oluştu", "error");
+      }
+    };
+  
+    // 6. Bağlantı kapatıldığında
     ws.onclose = () => {
-      setIsConnected(false);
-      setMotorStatus("Bağlantı Yok");
+      handleDisconnection();
+    };
+  
+    // 7. Yeniden bağlanma mekanizması
+    const handleDisconnection = () => {
+      if (isConnected) {
+        setIsConnected(false);
+        setMotorStatus("Bağlantı Yok");
+        
+        // 3 saniye sonra otomatik yeniden bağlan
+        const reconnectTimeout = setTimeout(() => {
+          if (!isConnected) {
+            showToast("Yeniden bağlanılıyor...", "info");
+            connectWebSocket();
+          }
+        }, 3000);
+  
+        // Temizleme fonksiyonu
+        return () => clearTimeout(reconnectTimeout);
+      }
     };
   };
+  
+  // 8. Komponent unmount olduğunda bağlantıyı kapat
+  useEffect(() => {
+    return () => {
+      if (ws) {
+        ws.close();
+        console.log("WebSocket bağlantısı kapatıldı");
+      }
+    };
+  }, []);
 
   useEffect(() => {
     connectWebSocket();
