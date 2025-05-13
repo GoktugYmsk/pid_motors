@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
 import { FiPower, FiSun, FiMoon, FiWifi, FiWifiOff, FiRotateCw, FiSettings } from "react-icons/fi";
 import { GiProgression } from "react-icons/gi";
@@ -10,7 +10,7 @@ import ReactCountryFlag from "react-country-flag";
 import 'react-toastify/dist/ReactToastify.css';
 import './index.scss';
 
-// Language files
+// Dil dosyaları
 const translations = {
   tr: {
     appTitle: "PID Motor Kontrol",
@@ -96,7 +96,7 @@ const translations = {
   }
 };
 
-// Create language context
+// Dil context'i
 const LanguageContext = React.createContext();
 
 function PidMotor() {
@@ -109,7 +109,7 @@ function PidMotor() {
   const [speed, setSpeed] = useState(0);
   const [isConnected, setIsConnected] = useState(false);
   const [inputAngle, setInputAngle] = useState("");
-  let ws;
+  const ws = useRef(null);
 
   const t = translations[language];
 
@@ -120,23 +120,19 @@ function PidMotor() {
   };
 
   const connectWebSocket = () => {
-    const getWebSocketUrl = () => {
-      if (process.env.NODE_ENV === 'development') {
-        return 'ws://192.168.1.100/ws';
-      }
-      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      return `${protocol}//${window.location.host}/api/ws-proxy`;
-    };
+    const wsUrl = window.location.hostname === 'localhost' 
+      ? 'ws://172.20.10.8:81' 
+      : 'wss://pid-controlled-engine.vercel.app/api/ws-proxy';
+    
+    ws.current = new WebSocket(wsUrl);
 
-    ws = new WebSocket(getWebSocketUrl());
-
-    ws.onopen = () => {
+    ws.current.onopen = () => {
       setIsConnected(true);
       setMotorStatus(t.connectionStatus.ready);
       showToast(t.messages.connectionEstablished, "success");
       
       if (process.env.NODE_ENV === 'production') {
-        ws.send(JSON.stringify({
+        ws.current.send(JSON.stringify({
           type: 'INIT_CONNECTION',
           deviceIp: process.env.NEXT_PUBLIC_STM32_IP || '192.168.1.100',
           authToken: process.env.NEXT_PUBLIC_WS_TOKEN
@@ -144,12 +140,11 @@ function PidMotor() {
       }
     };
 
-    ws.onmessage = (event) => {
+    ws.current.onmessage = (event) => {
       try {
-        const rawData = event.data;
-        const message = typeof rawData === 'string' 
-          ? JSON.parse(rawData) 
-          : JSON.parse(new TextDecoder().decode(rawData));
+        const message = typeof event.data === 'string' 
+          ? JSON.parse(event.data) 
+          : JSON.parse(new TextDecoder().decode(event.data));
 
         if (message.distance !== undefined) setDistance(parseFloat(message.distance.toFixed(2)));
         if (message.angle !== undefined) setAngle(parseInt(message.angle));
@@ -163,18 +158,17 @@ function PidMotor() {
           angle: message.angle || 0
         }]);
       } catch (error) {
-        console.error("Data processing error:", error);
-        setMotorStatus(`Data Error: ${event.data}`);
+        console.log("Ham veri:", event.data);
       }
     };
 
-    ws.onerror = (error) => {
+    ws.current.onerror = (error) => {
       console.error("WebSocket error:", error);
       handleDisconnection();
       showToast(t.messages.connectionLost, "error");
     };
 
-    ws.onclose = () => {
+    ws.current.onclose = () => {
       handleDisconnection();
     };
   };
@@ -187,11 +181,6 @@ function PidMotor() {
     }
   };
 
-  useEffect(() => {
-    connectWebSocket();
-    return () => ws?.close();
-  }, [language]);
-
   const showToast = (message, type) => {
     toast[type](message, {
       position: "top-right",
@@ -201,11 +190,11 @@ function PidMotor() {
   };
 
   const sendCommand = (command) => {
-    if (!isConnected) {
+    if (!isConnected || !ws.current) {
       showToast(t.messages.notConnected, "error");
       return false;
     }
-    ws.send(command);
+    ws.current.send(command);
     return true;
   };
 
@@ -249,14 +238,16 @@ function PidMotor() {
     connectWebSocket();
   };
 
+  useEffect(() => {
+    connectWebSocket();
+    return () => ws.current?.close();
+  }, [language]);
+
   return (
     <LanguageContext.Provider value={{ language, toggleLanguage }}>
       <div className={`app ${darkMode ? 'dark' : 'light'}`}>
         <ToastContainer />
         
-     
-
-
         <header className="app-header">
           <div className="header-content">
             <div className="logo">
@@ -265,27 +256,27 @@ function PidMotor() {
             </div>
             
             <div className="controls">
-            <button 
-    onClick={toggleLanguage}
-    className="language-switcher"
-    aria-label={language === 'tr' ? 'Switch to English' : 'Türkçe olarak değiştir'}
-  >
-    <div className="flag-container">
-      <ReactCountryFlag 
-        countryCode={language === 'tr' ? 'GB' : 'TR'} 
-        svg 
-        style={{
-          width: '20px',
-          height: '20px',
-          borderRadius: '50%',
-          objectFit: 'cover'
-        }} 
-      />
-    </div>
-    <span className="language-text">
-      {language === 'tr' ? 'EN' : 'TR'}
-    </span>
-  </button>
+              <button 
+                onClick={toggleLanguage}
+                className="language-switcher"
+                aria-label={language === 'tr' ? 'Switch to English' : 'Türkçe olarak değiştir'}
+              >
+                <div className="flag-container">
+                  <ReactCountryFlag 
+                    countryCode={language === 'tr' ? 'GB' : 'TR'} 
+                    svg 
+                    style={{
+                      width: '20px',
+                      height: '20px',
+                      borderRadius: '50%',
+                      objectFit: 'cover'
+                    }} 
+                  />
+                </div>
+                <span className="language-text">
+                  {language === 'tr' ? 'EN' : 'TR'}
+                </span>
+              </button>
 
               <div className={`connection ${isConnected ? 'connected' : 'disconnected'}`}>
                 {isConnected ? (
